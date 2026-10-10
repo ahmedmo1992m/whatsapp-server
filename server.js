@@ -138,26 +138,12 @@ async function startManagerSession(managerId) {
 
       console.log(`📩 رسالة جديدة من [${cleanPhone}] لشركة [${companyName}] - جاري إرسال الرد الآلي...`);
 
-     // تجهيز الروابط واختصارها بأمان تام
-  const baseUrl = "https://delivery1-pi.vercel.app";
-  const longRestaurantUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=restaurant`;
-  const longPackageUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=package`;
+    // تجهيز روابط الطلب
+const baseUrl = "https://delivery1-pi.vercel.app";
+      const restaurantUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=restaurant`;
+      const packageUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=package`;
 
-  let restaurantUrl = longRestaurantUrl;
-  let packageUrl = longPackageUrl;
-
-  try {
-    const [resRest, resPkg] = await Promise.all([
-      fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longRestaurantUrl)}`),
-      fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longPackageUrl)}`)
-    ]);
-
-    if (resRest.ok) restaurantUrl = await resRest.text();
-    if (resPkg.ok) packageUrl = await resPkg.text();
-  } catch (e) {
-    console.log("⚠️ تم تخطي الاختصار واستخدام الرابط الأصلي:", e.message);
-  }
-    // 🌟 نص الرسالة الترحيبية بروابط منسقة ومخفية الكلمة الطويلة
+      // 🌟 نص الرسالة الترحيبية بتنسيق احترافي وعالمي
       const messageText =  
 `👋 *أهلاً بك في ${companyName}*
 
