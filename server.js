@@ -138,23 +138,38 @@ async function startManagerSession(managerId) {
 
       console.log(`📩 رسالة جديدة من [${cleanPhone}] لشركة [${companyName}] - جاري إرسال الرد الآلي...`);
 
+     // تجهيز الروابط واختصارها تلقائياً لتكون قصيرة وأنيقة
       const baseUrl = "https://delivery1-pi.vercel.app";
-      const restaurantUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=restaurant`;
-      const packageUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=package`;
+      const longRestaurantUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=restaurant`;
+      const longPackageUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=package`;
 
-      // النص الاحترافي والمختصر الجديد
+      let restaurantUrl = longRestaurantUrl;
+      let packageUrl = longPackageUrl;
+
+      try {
+        // اختصار رابط المطعم
+        const resRest = await fetch(`http://tinyurl.com/api-create.php?url=${encodeURIComponent(longRestaurantUrl)}`);
+        if (resRest.ok) restaurantUrl = await resRest.text();
+
+        // اختصار رابط الطرد
+        const resPkg = await fetch(`http://tinyurl.com/api-create.php?url=${encodeURIComponent(longPackageUrl)}`);
+        if (resPkg.ok) packageUrl = await resPkg.text();
+      } catch (e) {
+        console.log("⚠️ فشل اختصار الرابط، سيتم استخدام الرابط الأصلي:", e);
+      }
+    // 🌟 نص الرسالة الترحيبية بروابط منسقة ومخفية الكلمة الطويلة
       const messageText =  
 `👋 *أهلاً بك في ${companyName}*
 
-يسعدنا خدمتك! اختر نوع طلبك لنبدأ فوراً:
+اختر نوع الخدمة لنبدأ فوراً:
 
-🛍️ *طلب من مطعم أو متجر:*
-🔗 ${restaurantUrl}
+🛍️ *طلب من مطعم أو محل:*
+إضغط هنا 👇
+${restaurantUrl}
 
 📦 *إرسال طرد أو شحنة:*
-🔗 ${packageUrl}
-
-⚡ *توصيل سريع وآمن*`;
+إضغط هنا 👇
+${packageUrl}`;
 
       if (logoUrl && logoUrl.trim() !== '') {
         await sock.sendMessage(fromPhone, {
