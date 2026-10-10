@@ -138,25 +138,25 @@ async function startManagerSession(managerId) {
 
       console.log(`📩 رسالة جديدة من [${cleanPhone}] لشركة [${companyName}] - جاري إرسال الرد الآلي...`);
 
-     // تجهيز الروابط واختصارها تلقائياً لتكون قصيرة وأنيقة
-      const baseUrl = "https://delivery1-pi.vercel.app";
-      const longRestaurantUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=restaurant`;
-      const longPackageUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=package`;
+     // تجهيز الروابط واختصارها بأمان تام
+  const baseUrl = "https://delivery1-pi.vercel.app";
+  const longRestaurantUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=restaurant`;
+  const longPackageUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=package`;
 
-      let restaurantUrl = longRestaurantUrl;
-      let packageUrl = longPackageUrl;
+  let restaurantUrl = longRestaurantUrl;
+  let packageUrl = longPackageUrl;
 
-      try {
-        // اختصار رابط المطعم
-        const resRest = await fetch(`http://tinyurl.com/api-create.php?url=${encodeURIComponent(longRestaurantUrl)}`);
-        if (resRest.ok) restaurantUrl = await resRest.text();
+  try {
+    const [resRest, resPkg] = await Promise.all([
+      fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longRestaurantUrl)}`),
+      fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longPackageUrl)}`)
+    ]);
 
-        // اختصار رابط الطرد
-        const resPkg = await fetch(`http://tinyurl.com/api-create.php?url=${encodeURIComponent(longPackageUrl)}`);
-        if (resPkg.ok) packageUrl = await resPkg.text();
-      } catch (e) {
-        console.log("⚠️ فشل اختصار الرابط، سيتم استخدام الرابط الأصلي:", e);
-      }
+    if (resRest.ok) restaurantUrl = await resRest.text();
+    if (resPkg.ok) packageUrl = await resPkg.text();
+  } catch (e) {
+    console.log("⚠️ تم تخطي الاختصار واستخدام الرابط الأصلي:", e.message);
+  }
     // 🌟 نص الرسالة الترحيبية بروابط منسقة ومخفية الكلمة الطويلة
       const messageText =  
 `👋 *أهلاً بك في ${companyName}*
