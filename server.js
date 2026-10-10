@@ -37,7 +37,7 @@ async function startManagerSession(managerId) {
   // إعدادات اتصال متكيفة ومستقرة
   const sock = makeWASocket({
     auth: state,
-    printQRInTerminal: true, // هينزل الكيو آر كمان في الترمينال للتأكد
+    printQRInTerminal: true,
     browser: ["Delivery System", "Chrome", "1.0.0"],
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 60000,
@@ -52,7 +52,6 @@ async function startManagerSession(managerId) {
 
     console.log(`📡 [${managerId}] حالة الاتصال:`, connection || 'جاري المعالجة...', qr ? '📸 تم استخراج QR' : '');
 
-    // إرسال الـ QR Code للفايربيس كصورة Base64
     if (qr) {
       console.log(`📸 جاري حفظ الـ QR في الفايربيس للمدير: ${managerId}`);
       try {
@@ -68,7 +67,6 @@ async function startManagerSession(managerId) {
       }
     }
 
-    // تم الاتصال والاقتران بنجاح
     if (connection === 'open') {
       console.log(`🎉 ✅ تم اتصال الواتساب بنجاح للمدير: ${managerId}`);
       await db.collection('managers').doc(managerId).set({
@@ -79,7 +77,6 @@ async function startManagerSession(managerId) {
       }, { merge: true });
     }
 
-    // التعامل مع انقطاع الاتصال المؤقت
     if (connection === 'close') {
       const statusCode = (lastDisconnect?.error)?.output?.statusCode;
       const isLoggedOut = statusCode === DisconnectReason.loggedOut;
@@ -100,7 +97,6 @@ async function startManagerSession(managerId) {
           fs.rmSync(sessionDir, { recursive: true, force: true });
         }
       } else {
-        // إعادة المحاولة التلقائية بدون تحويل الحالة لـ DISCONNECTED
         setTimeout(() => startManagerSession(managerId), 3000);
       }
     }
@@ -108,73 +104,58 @@ async function startManagerSession(managerId) {
 
   sock.ev.on('creds.update', saveCreds);
 
-// خريطة لتسجيل توقيت آخر رسالة تم الرد فيها على العميل
- const lastRepliedTime = new Map();
+  const lastRepliedTime = new Map();
 
-  // ب. التسمع على رسائل العملاء الواردة
+  // ب. التسمع على رسائل العملاء الواردة والرد الآلي
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return;
 
     for (const msg of messages) {
-      if (msg.key.fromMe) continue; // يتجاهل رسائل صاحب الرقم نفسه
+      if (msg.key.fromMe) continue;
 
       const fromPhone = msg.key.remoteJid;
-      // تنظيف رقم الهاتف وإزالة الامتدادات
       const cleanPhone = fromPhone.split('@')[0].split(':')[0];
 
       const customerKey = `${managerId}_${cleanPhone}`;
       const now = Date.now();
-      const threeMinutesInMs = 3 * 60 * 1000; // ⏱️ تم التعديل إلى 3 دقائق بالميللي ثانية
+      const threeMinutesInMs = 3 * 60 * 1000;
 
-      // ⏱️ فحص مهلة الـ 3 دقائق
       if (lastRepliedTime.has(customerKey)) {
         const lastTime = lastRepliedTime.get(customerKey);
         if (now - lastTime < threeMinutesInMs) {
-          console.log(`ℹ️ العميل [${cleanPhone}] أرسل رسالة خلال مهلة الـ 3 دقائق - تم تخطي الرد الآلي لتسهيل المحادثة المباشرة.`);
+          console.log(`ℹ️ العميل [${cleanPhone}] أرسل رسالة خلال مهلة الـ 3 دقائق - تم تخطي الرد الآلي.`);
           continue;
         }
       }
 
-      // جلب بيانات وإعدادات المدير من الفايربيس
       const managerDoc = await db.collection('managers').doc(managerId).get();
       const managerData = managerDoc.data() || {};
 
-      // التأكد من تفعيل خدمة الواتساب للمدير
       if (!managerData.isWhatsappActive) continue;
 
-      // 1. سحب اسم الشركة أو اسم المكتب
       const companyName = managerData.managerName || 'خدمة التوصيل السريع';
-      
-      // 2. سحب رابط اللوجو الخاص بالمدير
       const logoUrl = managerData.logoUrl || null;
 
       console.log(`📩 رسالة جديدة من [${cleanPhone}] لشركة [${companyName}] - جاري إرسال الرد الآلي...`);
 
-      // تجهيز روابط الطلب
-const baseUrl = "https://delivery1-pi.vercel.app";
+      const baseUrl = "https://delivery1-pi.vercel.app";
       const restaurantUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=restaurant`;
       const packageUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=package`;
 
-      // 🌟 نص الرسالة الترحيبية بتنسيق احترافي وعالمي
-      const messageText = 
-`✨ *مرحباً بك في ${companyName}* ✨
+      // النص الاحترافي والمختصر الجديد
+      const messageText =  
+`👋 *أهلاً بك في ${companyName}*
 
-تسعدنا خدمتك! يرجى اختيار الخدمة المطلوبة لبدء الطلب فوراً:
+يسعدنا خدمتك! اختر نوع طلبك لنبدأ فوراً:
 
-──────────────────
-
-🛍️ *طلب من مطعم أو محل تجاري*
-انقر على الرابط التالي لتحديد طلبك:
+🛍️ *طلب من مطعم أو متجر:*
 🔗 ${restaurantUrl}
 
-📦 *إرسال طرد أو شحنة خاصة*
-انقر على الرابط التالي لتحديد تفاصيل الشحنة:
+📦 *إرسال طرد أو شحنة:*
 🔗 ${packageUrl}
 
-──────────────────
-⚡ *خدمة توصيل فورية وآمنة*`;
+⚡ *توصيل سريع وآمن*`;
 
-      // 🖼️ إرسال الرسالة مع اللوجو لو كان موجوداً، أو كنص فقط لو لم يوجد
       if (logoUrl && logoUrl.trim() !== '') {
         await sock.sendMessage(fromPhone, {
           image: { url: logoUrl },
@@ -184,26 +165,55 @@ const baseUrl = "https://delivery1-pi.vercel.app";
         await sock.sendMessage(fromPhone, { text: messageText });
       }
 
-      // تحديث وقت آخر رد للعميل ليتم احتساب الـ 3 دقائق بداية من الآن
       lastRepliedTime.set(customerKey, now);
     }
   });
 }
 
 // ===================================================
-// 📡 المراقبة اللحظية لطلبات الـ QR من الفايربيس
+// 📡 المراقبة اللحظية لطلبات الـ QR والـ LOGOUT من الفايربيس
 // ===================================================
-console.log("👀 السيرفر يراقب طلبات الـ QR من تطبيق الفلاتر...");
+console.log("👀 السيرفر يراقب طلبات المكاتب من تطبيق الفلاتر...");
 
 db.collection('managers').onSnapshot(snapshot => {
-  snapshot.docChanges().forEach(change => {
+  snapshot.docChanges().forEach(async change => {
     if (change.type === 'added' || change.type === 'modified') {
       const data = change.doc.data();
       const managerId = change.doc.id;
+      const sessionDir = path.join(__dirname, 'sessions', `session_${managerId}`);
 
+      // 1. طلب توليد QR جديد
       if (data.whatsappStatus === 'REQUEST_QR' && !activeSessions.has(managerId)) {
         console.log(`🚀 جاري طلب توليد QR للمدير: ${managerId}`);
         startManagerSession(managerId);
+      }
+
+      // 2. طلب فصل وتسجيل خروج الهاتف (LOGOUT) 🔌
+      if (data.whatsappStatus === 'LOGOUT') {
+        console.log(`🔌 تم استلام طلب فصل الواتساب للمدير: ${managerId}`);
+        
+        if (activeSessions.has(managerId)) {
+          const sock = activeSessions.get(managerId);
+          try {
+            await sock.logout();
+            sock.end(undefined);
+          } catch (e) {
+            console.log("خطأ أثناء إغلاق السوكيت:", e);
+          }
+          activeSessions.delete(managerId);
+        }
+
+        if (fs.existsSync(sessionDir)) {
+          fs.rmSync(sessionDir, { recursive: true, force: true });
+          console.log(`🗑️ تم مسح مجلد الجلسة بنجاح للمدير: ${managerId}`);
+        }
+
+        await db.collection('managers').doc(managerId).set({
+          whatsappStatus: 'DISCONNECTED',
+          isWhatsappActive: false,
+          whatsappQR: null,
+          updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
       }
     }
   });
@@ -213,3 +223,15 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ سيرفر Node.js شغال بنجاح على البورت ${PORT}`);
 });
+
+// 🔄 كود إبقاء السيرفر نشطاً لمنع النوم (Keep-Alive) كل 5 دقائق
+const https = require('https');
+const SELF_URL = 'https://whatsapp-server-vtjg.onrender.com';
+
+setInterval(() => {
+  https.get(SELF_URL, (res) => {
+    console.log(`⚡ تم عمل Ping للسيرفر للحفاظ على نشاطه - الحالة: ${res.statusCode}`);
+  }).on('error', (err) => {
+    console.error(`❌ خطأ أثناء عمل Ping للسيرفر: ${err.message}`);
+  });
+}, 5 * 60 * 1000);
