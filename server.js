@@ -7,8 +7,8 @@ const { makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whis
 const path = require('path');
 const fs = require('fs');
 
-// 1. تهيئة الفايربيس
-const serviceAccount = require('./serviceAccountKey.json');
+// 1. تهيئة الفايربيس من Environment Variables
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 initializeApp({
   credential: cert(serviceAccount)
