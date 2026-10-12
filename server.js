@@ -23,6 +23,45 @@ app.use(express.json());
 // خريطة لتخزين اتصالات المكاتب الشغالة في الذاكرة
 const activeSessions = new Map();
 
+// 🕒 دالة للتحقق مما إذا كان الوقت الحالي يقع ضمن مواعيد العمل
+function isWithinWorkingHours(openStr, closeStr) {
+  if (!openStr || !closeStr) return true;
+
+  try {
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    function parseMinutes(timeStr) {
+      const cleanStr = timeStr.trim().toUpperCase();
+      const isPM = cleanStr.includes('PM');
+      const isAM = cleanStr.includes('AM');
+
+      const formatted = cleanStr.replace(/[^\d:]/g, '').trim();
+      const parts = formatted.split(':');
+
+      let hour = parseInt(parts[0], 10) || 0;
+      const minute = parseInt(parts[1], 10) || 0;
+
+      if (isPM && hour < 12) hour += 12;
+      if (isAM && hour === 12) hour = 0;
+
+      return hour * 60 + minute;
+    }
+
+    const openMinutes = parseMinutes(openStr);
+    const closeMinutes = parseMinutes(closeStr);
+
+    if (closeMinutes < openMinutes) {
+      return currentMinutes >= openMinutes || currentMinutes < closeMinutes;
+    } else {
+      return currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+    }
+  } catch (e) {
+    console.error("خطأ في التحقق من وقت العمل:", e);
+    return true;
+  }
+}
+
 // ===================================================
 // 🛠️ دالة تشغيل جلسة الواتساب وتوليد الـ QR لمدير معين
 // ===================================================
@@ -135,16 +174,27 @@ async function startManagerSession(managerId) {
 
       const companyName = managerData.managerName || 'خدمة التوصيل السريع';
       const logoUrl = managerData.logoUrl || null;
+      const openTime = managerData.openTime || '';
+      const closeTime = managerData.closeTime || '';
+
+      // 🕒 فحص ما إذا كان الوقت الحالي ضمن مواعيد العمل
+      const isOpenNow = isWithinWorkingHours(openTime, closeTime);
 
       console.log(`📩 رسالة جديدة من [${cleanPhone}] لشركة [${companyName}] - جاري إرسال الرد الآلي...`);
 
-    // تجهيز روابط الطلب
-const baseUrl = "https://delivery1-pi.vercel.app";
-      const restaurantUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=restaurant`;
-      const packageUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=package`;
+      let messageText = "";
 
-      // 🌟 نص الرسالة الترحيبية بتنسيق احترافي وعالمي
-      const messageText =  
+      if (!isOpenNow) {
+        // 🛑 رسالة الإغلاق وتوضيح ميعاد الفتح
+        messageText = `🛑 نأسف، نحن مغلقون حالياً في ${companyName}.\n\n⏰ مواعيد العمل تبدأ من الساعة: ${openTime} وحتى الساعة: ${closeTime}.\n\nسنكون سعداء بخدمتك فور بدأ العمل! 🚀`;
+      } else {
+        // تجهيز روابط الطلب
+        const baseUrl = "https://delivery1-pi.vercel.app";
+        const restaurantUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=restaurant`;
+        const packageUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=package`;
+
+        // 🌟 نص الرسالة الترحيبية بتنسيق احترافي وعالمي
+        messageText =  
 `👋 *أهلاً بك في ${companyName}*
 
 اختر نوع الخدمة لنبدأ فوراً:
@@ -156,6 +206,7 @@ ${restaurantUrl}
 📦 *إرسال طرد أو شحنة:*
 إضغط هنا 👇
 ${packageUrl}`;
+      }
 
       if (logoUrl && logoUrl.trim() !== '') {
         await sock.sendMessage(fromPhone, {
