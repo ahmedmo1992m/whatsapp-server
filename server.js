@@ -118,7 +118,7 @@ async function startManagerSession(managerId) {
 
       const customerKey = `${managerId}_${cleanPhone}`;
       const now = Date.now();
-      const threeMinutesInMs = 3 * 60 * 1000;
+      const threeMinutesInMs = 10 * 60 * 1000;
 
       if (lastRepliedTime.has(customerKey)) {
         const lastTime = lastRepliedTime.get(customerKey);
@@ -235,4 +235,4 @@ setInterval(() => {
   }).on('error', (err) => {
     console.error(`❌ خطأ أثناء عمل Ping للسيرفر: ${err.message}`);
   });
-}, 5 * 60 * 1000);
+}, 10 * 60 * 1000);
