@@ -120,11 +120,14 @@ async function startManagerSession(managerId) {
       const statusCode = (lastDisconnect?.error)?.output?.statusCode;
       const isLoggedOut = statusCode === DisconnectReason.loggedOut;
       
-      console.log(`⚠️ إعادة محاولة الاتصال للمدير [${managerId}] - الكود: ${statusCode}`);
+      console.log(`⚠️ انقطع الاتصال للمدير [${managerId}] - الكود: ${statusCode}`);
+
+      // حذف الجلسة النشطة من الذاكرة
+      activeSessions.delete(managerId);
 
       if (isLoggedOut) {
         console.log(`🚫 تم تسجيل الخروج من الجهاز للمدير: ${managerId}`);
-        activeSessions.delete(managerId);
+        // تحديث الحالة في الفايربيس وإلغاء تفعيل الواتساب تماماً
         await db.collection('managers').doc(managerId).set({
           whatsappStatus: 'DISCONNECTED',
           isWhatsappActive: false,
@@ -134,9 +137,20 @@ async function startManagerSession(managerId) {
 
         if (fs.existsSync(sessionDir)) {
           fs.rmSync(sessionDir, { recursive: true, force: true });
+          console.log(`🗑️ تم مسح مجلد الجلسة للمدير: ${managerId}`);
         }
       } else {
-        setTimeout(() => startManagerSession(managerId), 3000);
+        // لو الانقطاع بسبب شبكة أو خطأ مؤقت، افصل الحالة بدل ما تعلّق عشان التطبيق يديك فرصة تطلب QR جديد
+        console.log(`❌ حدث خطأ في الاتصال، يتم فصل الحالة للسماح بإعادة المحاولة للمدير: ${managerId}`);
+        await db.collection('managers').doc(managerId).set({
+          whatsappStatus: 'DISCONNECTED',
+          whatsappQR: null,
+          updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        if (fs.existsSync(sessionDir)) {
+          fs.rmSync(sessionDir, { recursive: true, force: true });
+        }
       }
     }
   });
@@ -157,12 +171,12 @@ async function startManagerSession(managerId) {
 
       const customerKey = `${managerId}_${cleanPhone}`;
       const now = Date.now();
-      const tenMinutesInMs = 10 * 60 * 1000;
+      const tenMinutesInMs = 5 * 60 * 1000;
 
       if (lastRepliedTime.has(customerKey)) {
         const lastTime = lastRepliedTime.get(customerKey);
         if (now - lastTime < tenMinutesInMs) {
-          console.log(`ℹ️ العميل [${cleanPhone}] أرسل رسالة خلال مهلة الـ 10 دقائق - تم تخطي الرد الآلي.`);
+          console.log(`ℹ️ العميل [${cleanPhone}] أرسل رسالة خلال مهلة الـ 5 دقائق - تم تخطي الرد الآلي.`);
           continue;
         }
       }
