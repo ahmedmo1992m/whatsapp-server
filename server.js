@@ -286,4 +286,4 @@ setInterval(() => {
   }).on('error', (err) => {
     console.error(`❌ خطأ أثناء عمل Ping للسيرفر: ${err.message}`);
   });
-}, 10 * 60 * 1000);
+}, 5 * 60 * 1000);
