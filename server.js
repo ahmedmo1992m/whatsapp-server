@@ -116,18 +116,18 @@ async function startManagerSession(managerId) {
       }, { merge: true });
     }
 
-    if (connection === 'close') {
+   if (connection === 'close') {
       const statusCode = (lastDisconnect?.error)?.output?.statusCode;
       const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+      const reason = lastDisconnect?.error?.output?.payload?.error;
       
-      console.log(`⚠️ انقطع الاتصال للمدير [${managerId}] - الكود: ${statusCode}`);
+      console.log(`⚠️ انقطع الاتصال للمدير [${managerId}] - الكود: ${statusCode} - السبب: ${reason}`);
 
       // حذف الجلسة النشطة من الذاكرة
       activeSessions.delete(managerId);
 
-      if (isLoggedOut) {
-        console.log(`🚫 تم تسجيل الخروج من الجهاز للمدير: ${managerId}`);
-        // تحديث الحالة في الفايربيس وإلغاء تفعيل الواتساب تماماً
+      if (isLoggedOut || statusCode === DisconnectReason.badSession) {
+        console.log(`🚫 تم تسجيل الخروج أو تلف الجلسة للمدير: ${managerId}`);
         await db.collection('managers').doc(managerId).set({
           whatsappStatus: 'DISCONNECTED',
           isWhatsappActive: false,
@@ -140,17 +140,9 @@ async function startManagerSession(managerId) {
           console.log(`🗑️ تم مسح مجلد الجلسة للمدير: ${managerId}`);
         }
       } else {
-        // لو الانقطاع بسبب شبكة أو خطأ مؤقت، افصل الحالة بدل ما تعلّق عشان التطبيق يديك فرصة تطلب QR جديد
-        console.log(`❌ حدث خطأ في الاتصال، يتم فصل الحالة للسماح بإعادة المحاولة للمدير: ${managerId}`);
-        await db.collection('managers').doc(managerId).set({
-          whatsappStatus: 'DISCONNECTED',
-          whatsappQR: null,
-          updatedAt: FieldValue.serverTimestamp()
-        }, { merge: true });
-
-        if (fs.existsSync(sessionDir)) {
-          fs.rmSync(sessionDir, { recursive: true, force: true });
-        }
+        // لو الانقطاع مش تسجيل خروج رسمي، بدل ما نفصل الحالة فوراً وتخرب عليك الـ QR، نديله محاولة إعادة اتصال تلقائية ذكية (Reconnect) أو ننتظر ثواني
+        console.log(`🔄 محاولة إعادة الاتصال التلقائي للمدير: ${managerId}`);
+        setTimeout(() => startManagerSession(managerId), 3000);
       }
     }
   });
