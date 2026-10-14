@@ -9,16 +9,19 @@ const fs = require('fs');
 
 // 1. تهيئة الفايربيس من Environment Variables
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-
 initializeApp({
   credential: cert(serviceAccount)
 });
 
 const db = getFirestore();
-
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// 🌐 نقطة نهاية (Endpoint) للرد على فحص UptimeRobot وإبقاء السيرفر نشطاً بدون خطأ 404
+app.get('/', (req, res) => {
+  res.status(200).send('WhatsApp Server is running successfully! 🚀');
+});
 
 // خريطة لتخزين اتصالات المكاتب الشغالة في الذاكرة
 const activeSessions = new Map();
@@ -26,7 +29,6 @@ const activeSessions = new Map();
 // 🕒 دالة للتحقق مما إذا كان الوقت الحالي يقع ضمن مواعيد العمل
 function isWithinWorkingHours(openStr, closeStr) {
   if (!openStr || !closeStr) return true;
-
   try {
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -76,7 +78,6 @@ async function startManagerSession(managerId) {
   // إعدادات اتصال متكيفة ومستقرة
   const sock = makeWASocket({
     auth: state,
-    printQRInTerminal: true,
     browser: ["Delivery System", "Chrome", "1.0.0"],
     connectTimeoutMs: 60000,
     defaultQueryTimeoutMs: 60000,
@@ -88,7 +89,6 @@ async function startManagerSession(managerId) {
   // أ. التسمع على حالة الاتصال والـ QR Code
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update;
-
     console.log(`📡 [${managerId}] حالة الاتصال:`, connection || 'جاري المعالجة...', qr ? '📸 تم استخراج QR' : '');
 
     if (qr) {
@@ -157,12 +157,12 @@ async function startManagerSession(managerId) {
 
       const customerKey = `${managerId}_${cleanPhone}`;
       const now = Date.now();
-      const threeMinutesInMs = 10 * 60 * 1000;
+      const tenMinutesInMs = 10 * 60 * 1000;
 
       if (lastRepliedTime.has(customerKey)) {
         const lastTime = lastRepliedTime.get(customerKey);
-        if (now - lastTime < threeMinutesInMs) {
-          console.log(`ℹ️ العميل [${cleanPhone}] أرسل رسالة خلال مهلة الـ 3 دقائق - تم تخطي الرد الآلي.`);
+        if (now - lastTime < tenMinutesInMs) {
+          console.log(`ℹ️ العميل [${cleanPhone}] أرسل رسالة خلال مهلة الـ 10 دقائق - تم تخطي الرد الآلي.`);
           continue;
         }
       }
@@ -194,16 +194,13 @@ async function startManagerSession(managerId) {
         const packageUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=package`;
 
         // 🌟 نص الرسالة الترحيبية بتنسيق احترافي وعالمي
-        messageText =  
-`👋 *أهلاً بك في ${companyName}*
-
+        messageText = 
+`👋 أهلاً بك في ${companyName}
 اختر نوع الخدمة لنبدأ فوراً:
-
-🛍️ *طلب من مطعم أو محل:*
+🛍️ طلب من مطعم أو محل:
 إضغط هنا 👇
 ${restaurantUrl}
-
-📦 *إرسال طرد أو شحنة:*
+📦 إرسال طرد أو شحنة:
 إضغط هنا 👇
 ${packageUrl}`;
       }
@@ -279,7 +276,6 @@ app.listen(PORT, () => {
 // 🔄 كود إبقاء السيرفر نشطاً لمنع النوم (Keep-Alive) كل 5 دقائق
 const https = require('https');
 const SELF_URL = 'https://whatsapp-server-vtjg.onrender.com';
-
 setInterval(() => {
   https.get(SELF_URL, (res) => {
     console.log(`⚡ تم عمل Ping للسيرفر للحفاظ على نشاطه - الحالة: ${res.statusCode}`);
