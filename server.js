@@ -195,18 +195,19 @@ async function startManagerSession(managerId) {
         messageText = `🛑 نأسف، نحن مغلقون حالياً في ${companyName}.\n\n⏰ مواعيد العمل تبدأ من الساعة: ${openTime} وحتى الساعة: ${closeTime}.\n\nسنكون سعداء بخدمتك فور بدأ العمل! 🚀`;
       } else {
         // تجهيز روابط الطلب
-        const baseUrl = "https://delivery1-pi.vercel.app";
-        const restaurantUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=restaurant`;
-        const packageUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=package`;
+      // تجهيز روابط الطلب مع تحديد التبويب المطلوب
+const baseUrl = "https://delivery1-pi.vercel.app";
+const restaurantUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=restaurant&mode=standard`;
+const packageUrl = `${baseUrl}?phone=${cleanPhone}&manager=${managerId}&type=package&mode=parcel`;
 
         // 🌟 نص الرسالة الترحيبية بتنسيق احترافي وعالمي
         messageText = 
 `👋 أهلاً بك في ${companyName}
 اختر نوع الخدمة لنبدأ فوراً:
-🛍️ طلب من مطعم أو محل:
+🛍️للطلبات والمشاوير:
 إضغط هنا 👇
 ${restaurantUrl}
-📦 إرسال طرد أو شحنة:
+📦 لإرسال طرد أو شحنة:
 إضغط هنا 👇
 ${packageUrl}`;
       }
